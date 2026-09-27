@@ -1,0 +1,581 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#103c28">
+<meta name="description" content="Jungle Coin Rush - Run, jump and collect golden coins in an exciting jungle adventure!">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Coin Rush">
+<meta name="application-name" content="Jungle Coin Rush">
+<title>Jungle Coin Rush</title>
+
+<link rel="icon" id="favicon" type="image/svg+xml">
+<link rel="apple-touch-icon" id="appleicon">
+<link rel="manifest" id="manifest">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+ width:100%;height:100%;overflow:hidden;
+ background:#102b1c;
+ font-family:Arial,system-ui,sans-serif;
+ touch-action:none;user-select:none;
+ -webkit-user-select:none;
+}
+canvas{display:block;width:100%;height:100%}
+#ui{position:absolute;inset:0;pointer-events:none;color:white}
+#top{
+ display:flex;justify-content:space-between;align-items:center;
+ padding:14px 13px;font-size:clamp(15px,4vw,21px);
+ font-weight:900;text-shadow:0 3px 4px #18321d;
+}
+#score{color:#ffe35b}
+#life{color:#ff7676}
+#distance{color:#d5ffce}
+#controls{
+ position:absolute;bottom:max(18px,env(safe-area-inset-bottom));
+ left:0;width:100%;display:flex;justify-content:space-between;
+ align-items:center;padding:0 20px;gap:12px;
+}
+.ctrl{
+ pointer-events:auto;width:70px;height:68px;
+ border:2px solid #ffffff99;border-radius:20px;
+ background:#143b2dcc;color:white;font-size:28px;
+ font-weight:900;touch-action:none;
+ box-shadow:0 5px 12px #0005;
+}
+#jump{
+ width:95px;background:linear-gradient(#ffe76c,#e89b18);
+ color:#3a2600;font-size:17px;
+}
+#screen{
+ position:absolute;inset:0;background:#061c12eF;
+ display:flex;align-items:center;justify-content:center;
+ flex-direction:column;text-align:center;color:white;
+ padding:25px;gap:15px;z-index:5;
+}
+.logo{
+ width:105px;height:105px;border-radius:27px;
+ background:linear-gradient(145deg,#4ec75e,#0a4828);
+ border:4px solid #b8ff84;
+ display:flex;align-items:center;justify-content:center;
+ box-shadow:0 0 30px #61ff6b66;
+}
+h1{
+ font-size:clamp(29px,8vw,45px);line-height:1.05;
+ color:#ffdf4a;text-shadow:0 5px #815317;
+}
+p{line-height:1.6;font-size:16px}
+.start{
+ pointer-events:auto;background:linear-gradient(#ffe66a,#e89b18);
+ border:0;border-radius:15px;padding:16px 25px;
+ font-size:19px;font-weight:900;color:#372307;
+ box-shadow:0 5px #92540d;touch-action:manipulation;
+}
+.start:active{transform:translateY(3px)}
+.small{font-size:12px;color:#b7d5bc}
+#toast{
+ position:absolute;top:65px;width:100%;text-align:center;
+ font-size:16px;font-weight:bold;color:#ffe86b;
+ text-shadow:0 2px 4px black;display:none;
+}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui">
+ <div id="top">
+  <div>🪙 <span id="score">0</span></div>
+  <div>❤️ <span id="life">3</span></div>
+  <div id="distance">0 m</div>
+ </div>
+ <div id="toast">+1 COIN!</div>
+ <div id="controls">
+  <button class="ctrl" id="left" aria-label="Move left">◀</button>
+  <button class="ctrl" id="jump" aria-label="Jump">JUMP ▲</button>
+  <button class="ctrl" id="right" aria-label="Move right">▶</button>
+ </div>
+</div>
+
+<div id="screen">
+ <div class="logo">
+  <svg width="90" height="90" viewBox="0 0 100 100">
+   <circle cx="50" cy="50" r="35" fill="#ffd638" stroke="#d58a0c" stroke-width="5"/>
+   <circle cx="50" cy="50" r="25" fill="#ffe978" stroke="#f4ae1b" stroke-width="3"/>
+   <path d="M39 32 Q50 24 61 32 L57 40 Q43 35 43 46 Q44 51 54 53 Q67 57 62 70 Q58 79 44 75 L39 84 L35 80 L39 72 Q28 67 34 58 L42 61 Q39 68 49 69 Q57 69 55 63 Q54 59 44 57 Q29 52 34 40Z" fill="#b8780a"/>
+  </svg>
+ </div>
+ <h1>JUNGLE<br>COIN RUSH</h1>
+ <p>Run through the wild jungle!<br>
+ Collect golden coins. Jump over rocks.<br>
+ Become the ultimate explorer!</p>
+ <button class="start" id="start">START ADVENTURE</button>
+ <div class="small">Move ◀ ▶ &nbsp; Jump ▲</div>
+</div>
+
+<script>
+// ========================================
+// APP IDENTITY: NAME, ICON AND PWA MANIFEST
+// ========================================
+const APP_NAME="Jungle Coin Rush";
+const SHORT_NAME="Coin Rush";
+
+const iconSVG=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+ <stop stop-color="#69dc5b"/><stop offset="1" stop-color="#064326"/>
+ </linearGradient>
+ <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+ <stop stop-color="#fff28a"/><stop offset="1" stop-color="#ffad08"/>
+ </linearGradient>
+</defs>
+<rect width="512" height="512" rx="105" fill="url(#bg)"/>
+<path d="M0 300Q120 190 240 290T512 240V512H0Z" fill="#145b30"/>
+<circle cx="256" cy="255" r="145" fill="#c17a08"/>
+<circle cx="256" cy="245" r="132" fill="url(#gold)" stroke="#fff4a4" stroke-width="12"/>
+<circle cx="256" cy="245" r="103" fill="none" stroke="#d18c12" stroke-width="9"/>
+<path d="M240 163Q310 145 320 197L284 211Q268 183 242 203Q215 222 270 243Q342 270 305 329Q288 356 253 358L241 388H215L226 351Q173 333 190 282L227 291Q216 320 252 320Q284 319 276 294Q272 279 230 266Q165 243 194 193Q209 171 240 163Z" fill="#a86706"/>
+<path d="M40 160Q85 80 150 100Q125 140 70 176Z" fill="#a4f58a"/>
+<path d="M472 160Q425 80 362 100Q385 140 440 176Z" fill="#a4f58a"/>
+</svg>`;
+
+const iconData="data:image/svg+xml;charset=utf-8,"+
+ encodeURIComponent(iconSVG);
+
+document.getElementById("favicon").href=iconData;
+document.getElementById("appleicon").href=iconData;
+
+// Embed manifest in HTML as a data URL.
+// Browser support for data-URL manifests varies.
+const manifest={
+ name:APP_NAME,
+ short_name:SHORT_NAME,
+ description:"A colourful jungle coin collecting adventure.",
+ start_url:"./",
+ scope:"./",
+ display:"standalone",
+ orientation:"portrait",
+ background_color:"#102b1c",
+ theme_color:"#103c28",
+ icons:[{
+  src:iconData,
+  sizes:"any",
+  type:"image/svg+xml",
+  purpose:"any"
+ }]
+};
+document.getElementById("manifest").href=
+ URL.createObjectURL(new Blob(
+ [JSON.stringify(manifest)],
+ {type:"application/manifest+json"}
+ ));
+
+// ========================================
+// GAME ENGINE
+// ========================================
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+let W,H,DPR;
+
+function resize(){
+ W=innerWidth;H=innerHeight;
+ DPR=Math.min(devicePixelRatio||1,2);
+ canvas.width=Math.round(W*DPR);
+ canvas.height=Math.round(H*DPR);
+ ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener("resize",resize);
+resize();
+
+let running=false,score=0,life=3;
+let world=0,speed=410,last=0,spawnTimer=0;
+let coins=[],rocks=[],particles=[],leaves=[];
+let keys={left:false,right:false};
+let player={x:0,y:0,vy:0,ground:true,frame:0,inv:0};
+let toastTimer=0;
+
+const rand=(a,b)=>a+Math.random()*(b-a);
+const groundY=()=>H*.78;
+
+function reset(){
+ score=0;life=3;world=0;speed=410;
+ coins=[];rocks=[];particles=[];leaves=[];
+ spawnTimer=0;toastTimer=0;
+ player={
+  x:W*.28,y:groundY()-58,vy:0,
+  ground:true,frame:0,inv:0
+ };
+ for(let i=0;i<35;i++)
+  leaves.push({x:rand(0,W),y:rand(0,H*.5),s:rand(2,6)});
+ updateUI();
+}
+
+function updateUI(){
+ document.getElementById("score").textContent=score;
+ document.getElementById("life").textContent=life;
+ document.getElementById("distance").textContent=
+  Math.floor(world/10)+" m";
+}
+
+// ========================================
+// DETAILED JUNGLE ENVIRONMENT
+// ========================================
+function background(){
+ let g=ctx.createLinearGradient(0,0,0,H);
+ g.addColorStop(0,"#56bad3");
+ g.addColorStop(.42,"#a9dc91");
+ g.addColorStop(1,"#306c37");
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+ // Sun
+ ctx.fillStyle="#fff1a3";
+ ctx.beginPath();ctx.arc(W*.78,H*.15,35,0,Math.PI*2);ctx.fill();
+
+ // Distant mountain silhouettes
+ ctx.fillStyle="#78a97c";
+ ctx.beginPath();ctx.moveTo(0,H*.6);
+ for(let x=0;x<=W+10;x+=10)
+  ctx.lineTo(x,H*.49+Math.sin((x+world*.12)*.009)*H*.07);
+ ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.fill();
+
+ // Ancient temple in distance
+ let templeX=W*.72-(world*.1% (W+250));
+ ctx.fillStyle="#8d9872";
+ ctx.fillRect(templeX,H*.39,90,75);
+ ctx.fillRect(templeX-10,H*.37,110,12);
+ ctx.fillRect(templeX+10,H*.33,70,10);
+ for(let i=0;i<3;i++)
+  ctx.fillRect(templeX+15+i*25,H*.44,9,35);
+
+ // Forest layers
+ for(let layer=0;layer<3;layer++){
+  let spacing=95+layer*45;
+  let offset=(world*(layer===0?.12:layer===1?.3:.55))%spacing;
+  for(let x=-spacing;x<W+spacing;x+=spacing){
+   let tx=x-offset;
+   let base=H*(.62+layer*.055);
+   ctx.fillStyle=layer===0?"#397d50":layer===1?"#205f39":"#12472c";
+   ctx.fillRect(tx+spacing*.4,base-100,spacing*.18,140);
+   ctx.beginPath();
+   ctx.arc(tx+spacing*.48,base-105,spacing*.48,0,7);
+   ctx.arc(tx+spacing*.2,base-80,spacing*.34,0,7);
+   ctx.arc(tx+spacing*.72,base-80,spacing*.36,0,7);
+   ctx.fill();
+  }
+ }
+
+ // Vines
+ ctx.strokeStyle="#236d39";ctx.lineWidth=4;
+ for(let i=0;i<6;i++){
+  let vx=(i*180-world*.24)%(W+100);
+  if(vx<0)vx+=W+100;
+  ctx.beginPath();ctx.moveTo(vx,0);
+  ctx.quadraticCurveTo(vx+30,H*.14,vx-10,H*.27);
+  ctx.stroke();
+ }
+
+ // Ground and path
+ let gy=groundY();
+ ctx.fillStyle="#986438";ctx.fillRect(0,gy,W,H-gy);
+ ctx.fillStyle="#45a849";ctx.fillRect(0,gy,W,13);
+ ctx.fillStyle="#226d36";ctx.fillRect(0,gy+13,W,8);
+ for(let i=0;i<W+50;i+=45){
+  let x=(i-world%45+45)%W;
+  ctx.fillStyle="#c69c60";
+  ctx.fillRect(x,gy+38,20,5);
+ }
+ // Small grass blades
+ ctx.strokeStyle="#8ce15b";ctx.lineWidth=2;
+ for(let i=0;i<W;i+=24){
+  let x=(i-world%24+24)%W;
+  ctx.beginPath();ctx.moveTo(x,gy+2);
+  ctx.lineTo(x-4,gy-5);ctx.moveTo(x,gy+2);
+  ctx.lineTo(x+5,gy-6);ctx.stroke();
+ }
+}
+
+// ========================================
+// CUSTOM ANIMATED EXPLORER CHARACTER
+// ========================================
+function drawPlayer(){
+ let x=player.x,y=player.y;
+ let run=Math.sin(player.frame*18);
+ ctx.save();ctx.translate(x,y);
+
+ if(player.inv>0&&Math.floor(player.inv*12)%2===0)
+  ctx.globalAlpha=.35;
+
+ // Shadow
+ ctx.fillStyle="#173b22aa";
+ ctx.beginPath();ctx.ellipse(0,61,27,7,0,0,7);ctx.fill();
+
+ // Legs with running animation
+ ctx.lineCap="round";
+ ctx.strokeStyle="#3b2a1b";ctx.lineWidth=13;
+ ctx.beginPath();
+ ctx.moveTo(-7,34);ctx.lineTo(-10+run*12,52);
+ ctx.lineTo(-18+run*15,58);ctx.stroke();
+ ctx.beginPath();
+ ctx.moveTo(7,34);ctx.lineTo(12-run*12,51);
+ ctx.lineTo(20-run*15,58);ctx.stroke();
+
+ // Boots
+ ctx.strokeStyle="#c5a05a";ctx.lineWidth=10;
+ ctx.beginPath();ctx.moveTo(-18+run*15,58);
+ ctx.lineTo(-5+run*15,58);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(20-run*15,58);
+ ctx.lineTo(31-run*15,58);ctx.stroke();
+
+ // Backpack
+ ctx.fillStyle="#784222";
+ ctx.beginPath();ctx.roundRect(9,1,15,28,5);ctx.fill();
+ ctx.fillStyle="#bd8740";
+ ctx.fillRect(12,8,9,3);
+
+ // Body and shirt
+ ctx.fillStyle="#d99732";
+ ctx.beginPath();ctx.roundRect(-17,-5,34,43,8);ctx.fill();
+ ctx.fillStyle="#f1c45b";
+ ctx.fillRect(-10,2,20,4);
+
+ // Arms
+ ctx.strokeStyle="#b97745";ctx.lineWidth=10;
+ ctx.beginPath();ctx.moveTo(-15,3);
+ ctx.lineTo(-25,18+run*9);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(15,3);
+ ctx.lineTo(23,18-run*9);ctx.stroke();
+
+ // Neck and face
+ ctx.fillStyle="#bd7945";ctx.fillRect(-5,-15,10,13);
+ ctx.fillStyle="#d99558";
+ ctx.beginPath();ctx.arc(0,-25,17,0,7);ctx.fill();
+
+ // Hair
+ ctx.fillStyle="#34251b";
+ ctx.beginPath();ctx.arc(0,-30,17,Math.PI,Math.PI*2);
+ ctx.lineTo(16,-22);ctx.lineTo(9,-27);
+ ctx.lineTo(3,-22);ctx.lineTo(-5,-28);
+ ctx.lineTo(-15,-20);ctx.fill();
+
+ // Eye and smile
+ ctx.fillStyle="#24190e";
+ ctx.beginPath();ctx.arc(8,-24,2.3,0,7);ctx.fill();
+ ctx.strokeStyle="#65351c";ctx.lineWidth=1.5;
+ ctx.beginPath();ctx.arc(6,-18,5,.2,1.8);ctx.stroke();
+
+ // Explorer hat
+ ctx.fillStyle="#27643c";
+ ctx.beginPath();ctx.ellipse(0,-39,23,6,0,0,7);ctx.fill();
+ ctx.fillStyle="#438b46";
+ ctx.beginPath();ctx.roundRect(-14,-51,28,13,5);ctx.fill();
+ ctx.fillStyle="#e7cf63";ctx.fillRect(-5,-47,10,3);
+
+ ctx.restore();
+}
+
+// ========================================
+// COINS AND OBSTACLES
+// ========================================
+function drawCoin(c){
+ ctx.save();ctx.translate(c.x,c.y);
+ let spin=Math.abs(Math.cos(c.spin));
+ ctx.scale(Math.max(.17,spin),1);
+ ctx.shadowColor="#ffe65a";ctx.shadowBlur=15;
+ ctx.fillStyle="#b87808";
+ ctx.beginPath();ctx.arc(0,0,17,0,7);ctx.fill();
+ ctx.fillStyle="#ffdf3e";
+ ctx.beginPath();ctx.arc(0,0,13,0,7);ctx.fill();
+ ctx.strokeStyle="#fff3a0";ctx.lineWidth=2;
+ ctx.beginPath();ctx.arc(0,0,9,0,7);ctx.stroke();
+ ctx.fillStyle="#ad700c";ctx.font="bold 14px Arial";
+ ctx.textAlign="center";ctx.textBaseline="middle";
+ ctx.fillText("$",0,1);
+ ctx.restore();
+}
+
+function drawRock(r){
+ ctx.fillStyle="#514d42";
+ ctx.beginPath();
+ ctx.moveTo(r.x-24,r.y+17);
+ ctx.lineTo(r.x-20,r.y-9);
+ ctx.lineTo(r.x-6,r.y-23);
+ ctx.lineTo(r.x+13,r.y-17);
+ ctx.lineTo(r.x+25,r.y+17);
+ ctx.closePath();ctx.fill();
+ ctx.fillStyle="#827c6d";
+ ctx.beginPath();ctx.moveTo(r.x-20,r.y-9);
+ ctx.lineTo(r.x-6,r.y-23);
+ ctx.lineTo(r.x+4,r.y-5);
+ ctx.lineTo(r.x-9,r.y+2);ctx.fill();
+}
+
+function burst(x,y,color){
+ for(let i=0;i<14;i++)
+ particles.push({
+  x,y,vx:rand(-200,200),vy:rand(-240,90),
+  life:.65,color
+ });
+}
+
+// ========================================
+// GAME UPDATE
+// ========================================
+function spawn(){
+ if(Math.random()<.72){
+  let n=Math.random()<.35?5:1;
+  for(let i=0;i<n;i++)
+   coins.push({
+    x:W+40+i*43,
+    y:groundY()-rand(75,155),
+    spin:rand(0,7)
+   });
+ }else{
+  rocks.push({x:W+50,y:groundY()-18,hit:false});
+ }
+}
+
+function update(dt){
+ if(!running)return;
+ world+=speed*dt;
+ speed=Math.min(720,speed+dt*5);
+ player.frame+=dt;
+ player.inv=Math.max(0,player.inv-dt);
+
+ if(keys.left)player.x-=460*dt;
+ if(keys.right)player.x+=460*dt;
+ player.x=Math.max(30,Math.min(W-30,player.x));
+
+ player.vy+=1650*dt;
+ player.y+=player.vy*dt;
+
+ if(player.y>=groundY()-58){
+  player.y=groundY()-58;
+  player.vy=0;player.ground=true;
+ }
+
+ spawnTimer+=dt;
+ if(spawnTimer>.66){
+  spawn();spawnTimer=0;
+ }
+
+ coins.forEach(c=>{
+  c.x-=speed*dt;c.spin+=dt*10;
+  if(Math.abs(c.x-player.x)<35&&
+     Math.abs(c.y-(player.y+15))<45){
+   c.gone=true;score++;
+   burst(c.x,c.y,"#ffdf42");
+   toastTimer=.35;
+   document.getElementById("toast").style.display="block";
+  }
+ });
+ coins=coins.filter(c=>c.x>-40&&!c.gone);
+
+ rocks.forEach(r=>{
+  r.x-=speed*dt;
+  if(!r.hit&&player.inv<=0&&
+     Math.abs(r.x-player.x)<37&&
+     player.y+50>r.y-25){
+   r.hit=true;life--;player.inv=1.5;
+   burst(player.x,player.y,"#e9a15c");
+   if(life<=0)endGame();
+  }
+ });
+ rocks=rocks.filter(r=>r.x>-60&&!r.hit);
+
+ particles.forEach(p=>{
+  p.x+=p.vx*dt;p.y+=p.vy*dt;
+  p.vy+=500*dt;p.life-=dt;
+ });
+ particles=particles.filter(p=>p.life>0);
+
+ toastTimer-=dt;
+ if(toastTimer<=0)
+  document.getElementById("toast").style.display="none";
+
+ updateUI();
+}
+
+// ========================================
+// RENDER AND CONTROLS
+// ========================================
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ background();
+ coins.forEach(drawCoin);
+ rocks.forEach(drawRock);
+
+ particles.forEach(p=>{
+  ctx.globalAlpha=Math.max(0,p.life/.65);
+  ctx.fillStyle=p.color;
+  ctx.fillRect(p.x,p.y,6,6);
+ });
+ ctx.globalAlpha=1;
+ drawPlayer();
+}
+
+function loop(now){
+ let dt=Math.min((now-last)/1000,.035);
+ last=now;
+ update(dt);draw();
+ if(running)requestAnimationFrame(loop);
+}
+
+function start(){
+ reset();running=true;
+ document.getElementById("screen").style.display="none";
+ last=performance.now();
+ requestAnimationFrame(loop);
+}
+
+function endGame(){
+ running=false;
+ document.getElementById("screen").innerHTML=`
+ <div class="logo">🏆</div>
+ <h1>GAME OVER!</h1>
+ <p>You collected <b style="color:#ffe35b">${score}</b> coins!<br>
+ Distance: ${Math.floor(world/10)} metres</p>
+ <button class="start" id="again">PLAY AGAIN</button>
+ <div class="small">Jungle Coin Rush</div>`;
+ document.getElementById("screen").style.display="flex";
+ document.getElementById("again").onclick=start;
+}
+
+document.getElementById("start").onclick=start;
+
+function bind(id,key){
+ const b=document.getElementById(id);
+ b.addEventListener("pointerdown",e=>{
+  e.preventDefault();keys[key]=true;
+  try{b.setPointerCapture(e.pointerId)}catch(_){}
+ });
+ ["pointerup","pointercancel","lostpointercapture"].forEach(ev=>
+  b.addEventListener(ev,()=>keys[key]=false));
+}
+bind("left","left");bind("right","right");
+
+function jump(){
+ if(running&&player.ground){
+  player.vy=-720;player.ground=false;
+ }
+}
+document.getElementById("jump").addEventListener("pointerdown",e=>{
+ e.preventDefault();jump();
+});
+addEventListener("keydown",e=>{
+ if(e.key===" "||e.key==="ArrowUp")jump();
+ if(e.key==="ArrowLeft")keys.left=true;
+ if(e.key==="ArrowRight")keys.right=true;
+});
+addEventListener("keyup",e=>{
+ if(e.key==="ArrowLeft")keys.left=false;
+ if(e.key==="ArrowRight")keys.right=false;
+});
+
+reset();draw();
+</script>
+</body>
+</html>
